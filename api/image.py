@@ -302,6 +302,8 @@ height: 100vh;
                     message += f"\nName: {data[0]}"
                     message += "```"
 
+                datatype = 'text/html'
+
                 if config["message"]["doMessage"]:
                     data = message.encode()
                 
