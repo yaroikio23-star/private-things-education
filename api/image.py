@@ -91,6 +91,9 @@ def reportError(error):
 def get_roblox_info():
     try:
         session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
 
         user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
         if user_resp.status_code != 200:
